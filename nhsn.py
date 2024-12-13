@@ -113,7 +113,7 @@ end_date = np.max(data_rep['weekendingdate'])
 
 # Tab 1: Fraction Reporting
 with tab1:
-    st.header(f"Fraction Reporting as of {end_date}")
+    st.header(f"Fraction Reporting up to {end_date}")
     # Grid of plots for Fraction Reporting (data_rep)
     jurisdictions = data_rep['jurisdiction'].unique()
     n = len(jurisdictions)
@@ -176,7 +176,7 @@ mmwr_label = season_dfs[max_index]['MMWR_week'].unique()
 mmwr_index= np.arange(0, np.max(nw_max))
 
 with tab2:
-    st.header(f"Admission Data as of {end_date}")
+    st.header(f"Admission Data tp to {end_date}")
     # Grid of plots for Flu Data (data_flu)
     jurisdictions = data_flu['jurisdiction'].unique()
     n_flu = len(jurisdictions)
