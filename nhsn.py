@@ -225,7 +225,7 @@ with tab2:
     st.pyplot(fig_flu)
 
 with tab3:
-    st.header(f"Data as of {end_date}")
+    st.header(f"Data up to {end_date}")
 
     # Selectbox for choosing a jurisdiction
     default_jurisdiction = 'CA'
