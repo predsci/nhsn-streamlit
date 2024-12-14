@@ -5,6 +5,10 @@ import pandas as pd
 import datetime
 from epiweeks import Week
 
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
 st.title('NHSN - Flu Weekly')
 
 # today = datetime.date.today()
@@ -117,33 +121,75 @@ with tab1:
     # Grid of plots for Fraction Reporting (data_rep)
     jurisdictions = data_rep['jurisdiction'].unique()
     n = len(jurisdictions)
-    cols = 4
+    cols = 3
     rows = int(np.ceil(n / cols))
-    fig, axes = plt.subplots(rows, cols, figsize=(30, rows * 4), constrained_layout=True)
-    axes = axes.flatten()
 
+    # Create a subplot grid
+    fig_rep = make_subplots(
+        rows=rows,
+        cols=cols,
+        subplot_titles=jurisdictions,
+        vertical_spacing=0.02,  # Adjust spacing (must be less than 1 / (rows - 1))
+        horizontal_spacing=0.05
+    )
+
+    # Add a bar plot for each jurisdiction
     for i, jurisdiction in enumerate(jurisdictions):
+        # Filter data for the jurisdiction
         data_jurisdiction = data_rep[data_rep['jurisdiction'] == jurisdiction]
-        ax = axes[i]
-        bars = ax.bar(data_jurisdiction['weekendingdate'], data_jurisdiction['totalconfflunewadmperchosprep'], 
-                      color='blue', alpha=1.0, width = 3)
-        ax.set_ylim([0, 1])
-        ax.set_xticks(data_jurisdiction['weekendingdate'])
-        ax.set_xticklabels(data_jurisdiction['MMWR_week'], rotation=45, fontsize=24)
-        if i % cols == 0:
-            ax.set_ylabel("Fraction Reporting", fontsize=24)
-            ax.set_yticks([0, 0.25, 0.5, 0.75, 1.0])
-            ax.set_yticklabels([0, 0.25, 0.5, 0.75, 1.0], fontsize=24)
-        else:
-            ax.set_yticklabels([])
-        ax.set_xlabel(None)
-        ax.legend([f"{jurisdiction}"], loc="upper left", frameon=False, fontsize=28)
-        ax.grid(axis='y', linestyle='--', alpha=0.7)
 
-    for j in range(len(jurisdictions), len(axes)):
-        axes[j].set_visible(False)
-    fig.tight_layout()
-    st.pyplot(fig)
+        # Determine row and column position
+        row = (i // cols) + 1
+        col = (i % cols) + 1
+
+        # Add the trace to the correct subplot
+        fig_rep.add_trace(
+            go.Bar(
+                x=data_jurisdiction['weekendingdate'],
+                y=data_jurisdiction['totalconfflunewadmperchosprep'],
+                name=jurisdiction,
+                # marker=dict(color='blue'),
+                opacity=0.7
+            ),
+            row=row,
+            col=col
+        )
+
+        # Customize axes visibility
+        show_xaxis = (row == rows)  # Show x-axis labels only for the bottom row
+        show_yaxis = (col == 1)     # Show y-axis labels only for the leftmost column
+
+        # Set shared x-axis and y-axis labels
+
+        fig_rep.update_xaxes(
+                title_text="Week Ending Date" if show_xaxis else None,
+                tickangle=45,
+                showticklabels=show_xaxis,
+                row=row,
+                col=col)
+
+        fig_rep.update_yaxes(
+                title_text="Fraction Reporting" if show_yaxis else None,
+                showticklabels=show_yaxis,
+                range = [0,1],
+                tickvals = [0, 0.25, 0.5, 0.75, 1.0],
+                ticktext = [0, 0.25, 0.5, 0.75, 1.0],
+                row=row,
+                col=col
+            )
+
+    # Update layout for the subplot grid
+    fig_rep.update_layout(
+        title="Fraction Reporting Across Jurisdictions",
+        showlegend=False,  # Hide legend for individual subplots
+        height=rows * 250,  # Adjust height dynamically based on the number of rows
+        template="plotly_white"
+    )
+
+    # Display the subplot grid in Streamlit
+    st.plotly_chart(fig_rep, use_container_width=True)
+
+
 
 # Tab 2: Flu Data
 
@@ -176,53 +222,87 @@ mmwr_label = season_dfs[max_index]['MMWR_week'].unique()
 mmwr_index= np.arange(0, np.max(nw_max))
 
 with tab2:
-    st.header(f"Admission Data tp to {end_date}")
+    st.header(f"Flu Admissions up to {end_date}")
+    
     # Grid of plots for Flu Data (data_flu)
     jurisdictions = data_flu['jurisdiction'].unique()
-    n_flu = len(jurisdictions)
-    cols_flu = 4
-    rows_flu = int(np.ceil(n_flu / cols_flu))
-    fig_flu, axes_flu = plt.subplots(rows_flu, cols_flu, figsize=(30, rows_flu * 4), constrained_layout=True)
-    axes_flu = axes_flu.flatten()
+    n = len(jurisdictions)
+    cols = 3
+    rows = int(np.ceil(n / cols))
+
+    # Create a subplot grid for Plotly
+    fig_flu = make_subplots(
+        rows=rows,
+        cols=cols,
+        subplot_titles=jurisdictions,
+        vertical_spacing=0.02,  # Adjust spacing
+        horizontal_spacing=0.05
+    )
 
     # Colors for each season
     season_colors = ['blue', 'red', 'green', 'black']
     linewidth = [1, 1, 1, 2]
 
+    # Add plots for each jurisdiction
     for i, jurisdiction in enumerate(jurisdictions):
-        ax = axes_flu[i]
-    
-        # Plot each season for the current jurisdiction
+        # Filter data for the jurisdiction
         for season_idx, season_df in enumerate(season_dfs):
-            # Filter data for the current jurisdiction
+            # Filter the current jurisdiction's data for this season
             data_jurisdiction = season_df[season_df['jurisdiction'] == jurisdiction]
-            xaxis_index = np.arange(0, data_jurisdiction.shape[0])
-        # Plot data with a unique color for each season
-            ax.plot(
-                # data_jurisdiction['weekendingdate'],
-                xaxis_index,
-                data_jurisdiction['totalconfflunewadm'], 
-                label=f"{year_start[season_idx]}",
-                color=season_colors[season_idx],
-                linewidth=linewidth[season_idx],
-                alpha=1.0)
-    
-        # Set labels and title
-        ax.set_title(f"{jurisdiction}", fontsize=24)
-        # ax.set_xticks(data_jurisdiction['weekendingdate'])
-        # ax.set_xticklabels(data_jurisdiction['MMWR_week'], rotation=45, fontsize=24)
-        ax.set_xticks(mmwr_index[::3])
-        ax.set_xticklabels(mmwr_label[::3], rotation=45, fontsize=24)        
-        ax.tick_params(axis='y', labelsize=24)
-        ax.set_xlabel(None)
-        ax.legend(fontsize=20)
-        # ax.legend([f"{jurisdiction}"], loc="upper left", frameon=False, fontsize=24)
- 
 
-    for j in range(len(jurisdictions), len(axes_flu)):
-        axes_flu[j].set_visible(False)
-    fig_flu.tight_layout()
-    st.pyplot(fig_flu)
+            # Determine row and column position
+            row = (i // cols) + 1
+            col = (i % cols) + 1
+
+            # Add a line trace for this jurisdiction and season
+            fig_flu.add_trace(
+                go.Scatter(
+                    x=np.arange(0, len(data_jurisdiction)),
+                    y=data_jurisdiction['totalconfflunewadm'],
+                    mode='lines+markers',  # Line plot with markers
+                    name=f"{jurisdiction} ({year_start[season_idx]}-{year_end[season_idx]})",
+                    line=dict(
+                        color=season_colors[season_idx],
+                        width=linewidth[season_idx]
+                    ),
+                    opacity=0.8
+                ),
+                row=row,
+                col=col
+            )
+
+        # Customize x-axis visibility
+        show_xaxis = (row == rows)  # Show x-axis labels only for the bottom row
+        show_yaxis = (col == 1)
+        fig_flu.update_xaxes(
+            title_text="Epidemic Week" if show_xaxis else None,
+            tickvals=np.arange(0, len(mmwr_label))[::3],
+            ticktext=mmwr_label[::3],
+            tickmode="array",
+            row=row,
+            col=col
+        )
+
+        # Customize y-axis visibility
+        fig_flu.update_yaxes(
+            title_text="Admissions" if show_yaxis else None,
+            showticklabels=True,  # Each panel has its own y-axis labels
+            row=row,
+            col=col
+        )
+
+    # Update the layout for the subplot grid
+    fig_flu.update_layout(
+        title="Flu Admissions Across Jurisdictions",
+        showlegend=False,  # Suppress legends for individual subplots
+        height=rows * 300,  # Dynamically adjust figure height based on the number of rows
+        template="plotly_white"
+    )
+
+    # Display the interactive Plotly subplot grid
+    st.plotly_chart(fig_flu, use_container_width=True)
+
+
 
 with tab3:
     st.header(f"Data up to {end_date}")
@@ -247,50 +327,70 @@ with tab3:
 
     data_rep_jurisdiction, data_flu_season = get_filtered_data(selected_jurisdiction, data_rep, season_dfs)
 
-    # Plot Fraction Reporting
-    fig_rep, ax_rep = plt.subplots(figsize=(12, 6))
-    ax_rep.bar(
-        data_rep_jurisdiction['weekendingdate'],
-        data_rep_jurisdiction['totalconfflunewadmperchosprep'],
-        label="Fraction Reporting",
-        color="blue",
-        alpha=0.7,
-        width = 3
-    )
 
-    ax_rep.set_xticks(data_rep_jurisdiction['weekendingdate'][::1])
-    ax_rep.set_xticklabels(data_rep_jurisdiction['MMWR_week'][::1], rotation=45, fontsize=16)
-    ax_rep.set_ylim([0, 1])
-    ax_rep.set_yticks([0, 0.25, 0.5, 0.75, 1.0])
-    ax_rep.set_yticklabels([0, 0.25, 0.5, 0.75, 1.0], fontsize=20)
-    ax_rep.set_title(f"Fraction Reporting - {selected_jurisdiction}", fontsize=20)
-    ax_rep.set_xlabel(None)
-    ax_rep.set_ylabel("Fraction Reporting", fontsize=20)
-    ax_rep.grid(axis='y', linestyle='--', alpha=0.7)
-    
-    st.pyplot(fig_rep)
+    # Plot 1: Fraction Reporting
+    fig_rep = px.bar(
+        data_rep_jurisdiction,
+        x='weekendingdate',
+        y='totalconfflunewadmperchosprep',
+        title=f"Fraction Reporting - {selected_jurisdiction}",
+        labels={'weekendingdate': 'Week Ending Date', 'totalconfflunewadmperchosprep': 'Fraction Reporting'}
+    )
+    st.plotly_chart(fig_rep)
+
 
     # Plot Flu Admissions
-    fig_flu, ax_flu = plt.subplots(figsize=(12, 6))
+
+    # Create a Plotly figure
+    fig_flu = go.Figure()
+
+    x_min = 0  # Minimum value of x-axis index
+    x_max = np.max(nw_max)-1 # Maximum value of x-axis index
+
+    # Add a trace for each season
     for season_idx, season_df in enumerate(data_flu_season):
-        xaxis_index = np.arange(len(season_df))
-        ax_flu.plot(
-            xaxis_index,
-            season_df['totalconfflunewadm'],
-            label=f"{year_start[season_idx]}",
-            color=season_colors[season_idx],
-            linewidth=linewidth[season_idx],
-            alpha=1.0
+        xaxis_index = np.arange(0, len(season_df))  # Create x-axis indices
+        fig_flu.add_trace(
+            go.Scatter(
+                x=xaxis_index,
+                y=season_df['totalconfflunewadm'],
+                mode='lines+markers',  # Line plot with markers
+                name=f"{year_start[season_idx]}",  # Legend label
+                line=dict(
+                    color=season_colors[season_idx],
+                    width=linewidth[season_idx]
+                ),
+                opacity=1.0  # Set transparency
+            )
         )
-    ax_flu.set_xlim([mmwr_index.min(), mmwr_index.max()])
-    ax_flu.set_xticks(mmwr_index)
-    ax_flu.set_xticklabels(mmwr_label, rotation=90, fontsize=16)
-    ax_flu.set_title(f"Flu Admissions - {selected_jurisdiction}", fontsize=20)
-    ax_flu.set_ylabel("Flu Admissions", fontsize=20)
-    ax_flu.tick_params(axis='y', labelsize=20)
-    ax_flu.grid(axis='both', linestyle='--', alpha=0.7)
-    ax_flu.legend(fontsize=16)
-    st.pyplot(fig_flu)
+
+    # Update layout for titles, labels, and styling
+    fig_flu.update_layout(
+        title="Flu Admissions Across Seasons",
+        xaxis=dict(
+            title="Epidemic Week",
+            # range=[x_min,x_max],
+            tickvals=np.arange(0, len(mmwr_label)),
+            ticktext=mmwr_label,
+            tickmode="array",
+            tick0=0,  # Starting tick
+            dtick=1   # Interval between ticks
+        ),
+        yaxis=dict(
+            title="Flu Admissions"
+        ),
+        legend=dict(
+            title="Seasons",
+            x=0,  # Position to the right
+            y=1   # Top
+        ),
+        template="plotly_white"
+    )
+
+    # Display the figure in Streamlit
+    st.plotly_chart(fig_flu)
+
+
 
 
 
