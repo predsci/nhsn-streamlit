@@ -9,7 +9,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-st.title('NHSN - Flu Weekly')
+st.title('NHSN: Influenza Weekly Data')
 
 # today = datetime.date.today()
 # # Get the day of the week
@@ -27,7 +27,7 @@ data_load_state = st.text('Loading and Plotting data...')
 
 # this is the path to historic data 
 
-path_to_data = '~/Dropbox/CSMB05/data/HHS_weekly-hosp_state.csv'
+path_to_data = 'data/HHS_weekly-hosp_state.csv'
 
 DATE_COLUMN = 'weekendingdate'
 @st.cache_data
@@ -117,7 +117,7 @@ end_date = np.max(data_rep['weekendingdate'])
 
 # Tab 1: Fraction Reporting
 with tab1:
-    st.header(f"Fraction Reporting up to {end_date}")
+    st.header(f"Facilities Reporting as of {end_date.strftime('%m-%d-%y')}")
     # Grid of plots for Fraction Reporting (data_rep)
     jurisdictions = data_rep['jurisdiction'].unique()
     n = len(jurisdictions)
@@ -180,7 +180,7 @@ with tab1:
 
     # Update layout for the subplot grid
     fig_rep.update_layout(
-        title="Fraction Reporting Across Jurisdictions",
+        title="Fraction of Reporting Facilities Across Jurisdictions",
         showlegend=False,  # Hide legend for individual subplots
         height=rows * 250,  # Adjust height dynamically based on the number of rows
         template="plotly_white"
@@ -222,7 +222,7 @@ mmwr_label = season_dfs[max_index]['MMWR_week'].unique()
 mmwr_index= np.arange(0, np.max(nw_max))
 
 with tab2:
-    st.header(f"Flu Admissions up to {end_date}")
+    st.header(f"Flu Admissions up to {end_date.strftime('%m-%d-%y')}")
     
     # Grid of plots for Flu Data (data_flu)
     jurisdictions = data_flu['jurisdiction'].unique()
@@ -305,7 +305,7 @@ with tab2:
 
 
 with tab3:
-    st.header(f"Data up to {end_date}")
+    st.header(f"Data up to {end_date.strftime('%m-%d-%y')}")
 
     # Selectbox for choosing a jurisdiction
     default_jurisdiction = 'CA'
