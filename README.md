@@ -17,6 +17,7 @@ To run this app, you need to create a Python environment using **conda** or **ve
 - `pandas`
 - `datetime`
 - `epiweeks`
+- `plotly`
 
 1. **Create and Activate the Environment**:
    - Using `conda`:
@@ -32,7 +33,7 @@ To run this app, you need to create a Python environment using **conda** or **ve
 
 2. **Install Required Packages**:
    ```bash
-   pip install streamlit numpy matplotlib pandas datetime epiweeks
+   pip install streamlit numpy matplotlib pandas datetime epiweeks plotly
     ```
    
 3. **Clone the Repository**:
