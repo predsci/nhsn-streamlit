@@ -112,6 +112,13 @@ start_date = datetime.datetime(2024, 8, 16)
 
 data_rep = data_rep[data_rep['weekendingdate'] >= pd.Timestamp(start_date)]
 end_date = np.max(data_rep['weekendingdate'])
+
+# Colors for each season
+#season_colors = ['#636EFA', '#EF553B', '#00CC96', '#AB63FA'] # Plotly default colors
+season_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728'] # Matplotlib default colors
+
+linewidth = [1, 1, 1, 2]
+
 # Streamlit app
 
 # Tab 1: Fraction Reporting
@@ -237,10 +244,6 @@ with tab2:
         vertical_spacing=0.02,  # Adjust spacing
         horizontal_spacing=0.05
     )
-
-    # Colors for each season
-    season_colors = ['blue', 'red', 'green', 'black']
-    linewidth = [1, 1, 1, 2]
 
     # Add plots for each jurisdiction
     for i, jurisdiction in enumerate(jurisdictions):
