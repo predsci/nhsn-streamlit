@@ -3,7 +3,10 @@
 A Python app to display up-to-date NHSN data, including:
 - Fraction Reporting
 - Weekly Admission Data
+- PSI forecast 
 
+Please note that by changing the path to the submission directory we can view either one of our two forecasts
+The option to view the forecast can be easily modified by individuals outside PSI
 ---
 
 ## Setting Up the Environment
