@@ -13,7 +13,6 @@ To run this app, you need to create a Python environment using **conda** or **ve
 ### Required Python Packages:
 - `streamlit`
 - `numpy`
-- `matplotlib`
 - `pandas`
 - `datetime`
 - `epiweeks`
