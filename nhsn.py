@@ -10,6 +10,7 @@ from plotly.subplots import make_subplots
 
 import os
 import utils
+import requests
 
 st.title('NHSN: Influenza Weekly Data')
 
@@ -48,6 +49,7 @@ psi_data = psi_data.merge(fips_df, left_on='location', right_on='state_code', ho
 # just test subsetting 
 psi_data_locs = psi_data['state_abbr'].unique()
 
+
 # for loc in psi_data_locs:
 #     psi_subset = psi_data[psi_data['state_abbr'] == loc]
 
@@ -59,7 +61,7 @@ psi_data_locs = psi_data['state_abbr'].unique()
 # which is the url_main (The Friday URL)
 
 url_dev  = "https://data.cdc.gov/resource/mpgq-jmmr.csv"
-url_main = url = "https://data.cdc.gov/resource/ua7e-t2fy.csv"
+url_main = "https://data.cdc.gov/resource/ua7e-t2fy.csv"
 
 # Read the CSV directly into a pandas DataFrame
 
@@ -70,11 +72,15 @@ data_load_state = st.text('Loading and Plotting data...')
 path_to_data = 'data/HHS_weekly-hosp_state.csv'
 
 DATE_COLUMN = 'weekendingdate'
+
+regions = [f'Region {i}' for i in range(1, 11)]
+
 @st.cache_data
 def load_historic_data(path_to_data):
     data = pd.read_csv(path_to_data)
     data['weekendingdate'] = pd.to_datetime(data['weekendingdate'])
     data = data.loc[~data['jurisdiction'].isin(['AS', 'VI', 'GU', 'MP', 'USA'])]
+    data = data.loc[~data['jurisdiction'].isin(regions)]
     return data
 
 @st.cache_data
@@ -82,11 +88,17 @@ def preprocess_data(data):
     # Process data as needed
     data['weekendingdate'] = pd.to_datetime(data['weekendingdate'])
     data = data.loc[~data['jurisdiction'].isin(['AS', 'VI', 'GU', 'MP', 'USA'])]
+    data = data.loc[~data['jurisdiction'].isin(regions)]
     return data
 
 historic_data = load_historic_data(path_to_data)
-data_main = preprocess_data(pd.read_csv(url_main))
-data_dev = preprocess_data(pd.read_csv(url_dev))
+
+data_main = utils.download_all_cdc_data(url_main, output_path='data/cdc_main_full_data.csv')
+
+data_main = preprocess_data(data_main)
+
+data_dev = utils.download_all_cdc_data(url_dev, output_path='data/cdc_main_full_data.csv')
+data_dev = preprocess_data(data_dev)
 
 max_date_in_data_dev = data_dev['weekendingdate'].max()
 max_date_in_data_main= data_main['weekendingdate'].max()
@@ -103,7 +115,6 @@ data_rep = data.loc[:, data.columns.isin(['weekendingdate', 'jurisdiction', 'tot
 
 data_flu['totalconfflunewadm'] = pd.to_numeric(data_flu['totalconfflunewadm'])
 data_rep['totalconfflunewadmperchosprep'] = pd.to_numeric(data_rep['totalconfflunewadmperchosprep'])
-
 
 hst_data_flu = historic_data.loc[:, historic_data.columns.isin(['weekendingdate', 'jurisdiction', 'totalconfflunewadm'])]
 
@@ -144,7 +155,8 @@ data_rep['MMWR_year'] = data_rep['weekendingdate'].apply(lambda x: Week.fromdate
 data_rep['MMWR_week'] = data_rep['weekendingdate'].apply(lambda x: Week.fromdate(x).week)
 
 # Create tabs
-tab1, tab2, tab3 = st.tabs(["Fraction Reporting", "Flu Data", "Individual Locations"])
+tab1, tab2, tab3, tab4 = st.tabs(["Fraction Reporting", "Flu Data & Forecasts", 
+    "Cumulative Data", "Individual Locations"])
 
 data_rep = pd.DataFrame(data_rep)
 
@@ -238,7 +250,6 @@ with tab1:
 
     # Display the subplot grid in Streamlit
     st.plotly_chart(fig_rep, use_container_width=True)
-
 
 
 # Tab 2: Flu Data and forecast
@@ -430,6 +441,89 @@ with tab2:
     st.plotly_chart(fig_flu, use_container_width=True)
 
 with tab3:
+    st.header(f"Cumulative Flu Admissions up to {end_date.strftime('%m-%d-%y')}")
+    
+    # Grid of plots for Flu Data (data_flu)
+    jurisdictions = data_flu['jurisdiction'].unique()
+    n = len(jurisdictions)
+    cols = 3
+    rows = int(np.ceil(n / cols))
+
+    # Create a subplot grid for Plotly
+    fig_flu = make_subplots(
+        rows=rows,
+        cols=cols,
+        subplot_titles=jurisdictions,
+        vertical_spacing=0.02,  # Adjust spacing
+        horizontal_spacing=0.05
+    )
+
+
+
+    # Add plots for each jurisdiction
+    for i, jurisdiction in enumerate(jurisdictions):
+        # Filter data for the jurisdiction
+        for season_idx, season_df in enumerate(season_dfs):
+            # Filter the current jurisdiction's data for this season
+            data_jurisdiction = season_df[season_df['jurisdiction'] == jurisdiction]
+
+            # Determine row and column position
+            row = (i // cols) + 1
+            col = (i % cols) + 1
+
+            # Add a line trace for this jurisdiction and season
+            fig_flu.add_trace(
+                go.Scatter(
+                    x=np.arange(0, len(data_jurisdiction)),
+                    y=data_jurisdiction['totalconfflunewadm'].cumsum(),
+                    mode='lines+markers',  # Line plot with markers
+                    name=f"{jurisdiction} ({year_start[season_idx]}-{year_end[season_idx]})",
+                    line=dict(
+                        color=season_colors[season_idx],
+                        width=linewidth[season_idx]
+                    ),
+                    opacity=0.8
+                ),
+                row=row,
+                col=col
+            )
+
+
+        # Customize x-axis visibility
+        show_xaxis = (row == rows)  # Show x-axis labels only for the bottom row
+        show_yaxis = (col == 1)
+        fig_flu.update_xaxes(
+            title_text="Epidemic Week" if show_xaxis else None,
+            tickvals=np.arange(0, len(mmwr_label))[::3],
+            ticktext=mmwr_label[::3],
+            tickmode="array",
+            row=row,
+            col=col
+        )
+
+        # Customize y-axis visibility
+        fig_flu.update_yaxes(
+            title_text="Cumulative Admissions" if show_yaxis else None,
+            showticklabels=True,  # Each panel has its own y-axis labels
+            row=row,
+            col=col
+        )
+
+    # Update the layout for the subplot grid
+    fig_flu.update_layout(
+        title="Cumulative Flu Admissions Across Jurisdictions",
+        showlegend=False,  # Suppress legends for individual subplots
+        height=rows * 300,  # Dynamically adjust figure height based on the number of rows
+        template="plotly_white"
+    )
+
+    # Display the interactive Plotly subplot grid
+    st.plotly_chart(fig_flu, use_container_width=True)
+
+
+
+
+with tab4:
     st.header(f"Data up to {end_date.strftime('%m-%d-%y')}")
 
     # Selectbox for choosing a jurisdiction
@@ -585,7 +679,54 @@ with tab3:
     # Display the figure in Streamlit
     st.plotly_chart(fig_flu)
 
+    # Plot Cumulative Flu Admissions
 
+    # Create a Plotly figure
+    fig_cum = go.Figure()
 
+    x_min = 0  # Minimum value of x-axis index
+    x_max = np.max(nw_max)-1 # Maximum value of x-axis index
 
+    # Add a trace for each season
+    for season_idx, season_df in enumerate(data_flu_season):
+        xaxis_index = np.arange(0, len(season_df))  # Create x-axis indices
+        fig_cum.add_trace(
+            go.Scatter(
+                x=xaxis_index,
+                y=season_df['totalconfflunewadm'].cumsum(),
+                mode='lines+markers',  # Line plot with markers
+                name=f"{year_start[season_idx]}",  # Legend label
+                line=dict(
+                    color=season_colors[season_idx],
+                    width=linewidth[season_idx]
+                ),
+                opacity=1.0  # Set transparency
+            ))
+    
+
+    # Update layout for titles, labels, and styling
+    fig_cum.update_layout(
+        title="Cumulative Flu Admissions Across Seasons",
+        xaxis=dict(
+            title="Epidemic Week",
+            # range=[x_min,x_max],
+            tickvals=np.arange(0, len(mmwr_label)),
+            ticktext=mmwr_label,
+            tickmode="array",
+            tick0=0,  # Starting tick
+            dtick=1   # Interval between ticks
+        ),
+        yaxis=dict(
+            title="Cumulative Flu Admissions"
+        ),
+        legend=dict(
+            title="Seasons",
+            x=0,  # Position to the right
+            y=1   # Top
+        ),
+        template="plotly_white"
+    )
+
+    # Display the figure in Streamlit
+    st.plotly_chart(fig_cum)
 
