@@ -49,6 +49,7 @@ psi_data = psi_data.merge(fips_df, left_on='location', right_on='state_code', ho
 # just test subsetting 
 psi_data_locs = psi_data['state_abbr'].unique()
 
+
 # for loc in psi_data_locs:
 #     psi_subset = psi_data[psi_data['state_abbr'] == loc]
 
@@ -60,7 +61,7 @@ psi_data_locs = psi_data['state_abbr'].unique()
 # which is the url_main (The Friday URL)
 
 url_dev  = "https://data.cdc.gov/resource/mpgq-jmmr.csv"
-url_main = url = "https://data.cdc.gov/resource/ua7e-t2fy.csv"
+url_main = "https://data.cdc.gov/resource/ua7e-t2fy.csv"
 
 # Read the CSV directly into a pandas DataFrame
 
@@ -71,11 +72,15 @@ data_load_state = st.text('Loading and Plotting data...')
 path_to_data = 'data/HHS_weekly-hosp_state.csv'
 
 DATE_COLUMN = 'weekendingdate'
+
+regions = [f'Region {i}' for i in range(1, 11)]
+
 @st.cache_data
 def load_historic_data(path_to_data):
     data = pd.read_csv(path_to_data)
     data['weekendingdate'] = pd.to_datetime(data['weekendingdate'])
     data = data.loc[~data['jurisdiction'].isin(['AS', 'VI', 'GU', 'MP', 'USA'])]
+    data = data.loc[~data['jurisdiction'].isin(regions)]
     return data
 
 @st.cache_data
@@ -83,12 +88,13 @@ def preprocess_data(data):
     # Process data as needed
     data['weekendingdate'] = pd.to_datetime(data['weekendingdate'])
     data = data.loc[~data['jurisdiction'].isin(['AS', 'VI', 'GU', 'MP', 'USA'])]
+    data = data.loc[~data['jurisdiction'].isin(regions)]
     return data
 
 historic_data = load_historic_data(path_to_data)
 
-
 data_main = utils.download_all_cdc_data(url_main, output_path='data/cdc_main_full_data.csv')
+
 data_main = preprocess_data(data_main)
 
 data_dev = utils.download_all_cdc_data(url_dev, output_path='data/cdc_main_full_data.csv')
