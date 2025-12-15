@@ -43,7 +43,7 @@ To run this app, you need to create a Python environment using **conda** or **ve
 ## Running the App
 
    ```
-   streamlit run nhsn.app
+   streamlit run nhsn.py
   ```
 ## Support
 
