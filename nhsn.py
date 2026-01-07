@@ -16,8 +16,9 @@ st.title('NHSN: Influenza Weekly Data')
 
 # PSI submission
 
-path_to_weekly_submission = "/Users/michal/Dropbox/CSMB05/CDC2024-2025/new_weekly_submissions/"
+path_to_weekly_submission = "/Users/michal/Dropbox/CSMB06/CDC2025-2026/new_weekly_submissions/"
 submission_files = utils.list_csv_files(path_to_weekly_submission)
+
 file_dates = [file[:10] for file in submission_files]
 
 # Find the file with the latest date
@@ -94,7 +95,6 @@ def preprocess_data(data):
 historic_data = load_historic_data(path_to_data)
 
 data_main = utils.download_all_cdc_data(url_main, output_path='data/cdc_main_full_data.csv')
-
 data_main = preprocess_data(data_main)
 
 data_dev = utils.download_all_cdc_data(url_dev, output_path='data/cdc_main_full_data.csv')
@@ -109,16 +109,16 @@ else:
     data = data_dev
 
 
-data_flu = data.loc[:, data.columns.isin(['weekendingdate', 'jurisdiction', 'totalconfflunewadm'])]
+data_flu = data.loc[:, data.columns.isin(['weekendingdate', 'jurisdiction', 'totalconfflunewadm'])].copy()
 
-data_rep = data.loc[:, data.columns.isin(['weekendingdate', 'jurisdiction', 'totalconfflunewadmperchosprep'])] 
+data_rep = data.loc[:, data.columns.isin(['weekendingdate', 'jurisdiction', 'totalconfflunewadmperchosprep'])].copy()
 
 data_flu['totalconfflunewadm'] = pd.to_numeric(data_flu['totalconfflunewadm'])
 data_rep['totalconfflunewadmperchosprep'] = pd.to_numeric(data_rep['totalconfflunewadmperchosprep'])
 
-hst_data_flu = historic_data.loc[:, historic_data.columns.isin(['weekendingdate', 'jurisdiction', 'totalconfflunewadm'])]
+hst_data_flu = historic_data.loc[:, historic_data.columns.isin(['weekendingdate', 'jurisdiction', 'totalconfflunewadm'])].copy()
 
-hst_data_rep = historic_data.loc[:, historic_data.columns.isin(['weekendingdate', 'jurisdiction', 'totalconfflunewadmperchosprep'])] 
+hst_data_rep = historic_data.loc[:, historic_data.columns.isin(['weekendingdate', 'jurisdiction', 'totalconfflunewadmperchosprep'])].copy()
 
 # Find the maximum date in hst_data_flu
 max_date_in_hst_data= historic_data['weekendingdate'].max()
@@ -161,7 +161,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["Fraction Reporting", "Flu Data & Forecasts",
 data_rep = pd.DataFrame(data_rep)
 
 # Convert weekendingdate to datetime
-start_date = datetime.datetime(2024, 8, 16)
+start_date = datetime.datetime(2025, 8, 16)
 
 data_rep = data_rep[data_rep['weekendingdate'] >= pd.Timestamp(start_date)]
 end_date = np.max(data_rep['weekendingdate'])
@@ -169,9 +169,8 @@ end_date = np.max(data_rep['weekendingdate'])
 
 # 
 # Colors for each season
-season_colors = ['#636EFA', '#EF553B', '#00CC96', '#AB63FA'] # Plotly default colors
-season_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728'] # Matplotlib default colors
-linewidth = [1, 1, 1, 2]
+season_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd'] # Matplotlib default colors
+linewidth = [1, 1, 1, 1, 2]
 
 frcst_color = 'black'
 
@@ -257,36 +256,91 @@ with tab1:
 EW_start = Week.fromdate(start_date).week
 EW_end   = 20
 
-year_start = [2021, 2022, 2023, 2024]
+year_start = [2021, 2022, 2023, 2024, 2025]
 year_end = [year + 1 for year in year_start]
 
 # Subset the DataFrame for each season
-season_dfs = []
-nw_max = []
 
 @st.cache_data
+
 def prepare_season_data(data_flu, year_start, year_end, EW_start, EW_end):
     season_dfs = []
+    nw_max = []
+
+    n_jur = len(data_flu['jurisdiction'].unique())
+
     for i in range(len(year_start)):
+        # 1. Slice the season (same as before), but make a copy
         season_df = data_flu[
             ((data_flu['MMWR_year'] == year_start[i]) & (data_flu['MMWR_week'] >= EW_start)) |
             ((data_flu['MMWR_year'] == year_end[i]) & (data_flu['MMWR_week'] <= EW_end))
-        ]
+        ].copy()
+
+        # 2. Sort by weekendingdate so each season is in strict time order
+        #    (assumes weekendingdate is already datetime; if not, wrap in pd.to_datetime)
+        season_df = season_df.sort_values('weekendingdate')
+
+        # 3. FIX FOR SEASONS WITHOUT WEEK 53
+        unique_weeks = season_df['MMWR_week'].unique()
+
+        if 53 not in unique_weeks:
+            # For each jurisdiction, find its last available week in this season
+            # (largest weekendingdate)
+            last_dates = season_df.groupby('jurisdiction')['weekendingdate'].transform('max')
+            lastweek = season_df[season_df['weekendingdate'] == last_dates].copy()
+
+            if not lastweek.empty:
+                # Set week number to 53 for the padded row
+                lastweek['MMWR_week'] = 53
+               
+                # Option 1: give it a synthetic date one week after the last real date
+                # This keeps chronological order and spacing.
+                lastweek['weekendingdate'] = lastweek['weekendingdate'] + pd.Timedelta(days=7)
+
+                # Option 2 (if you prefer): keep the same date as the last week
+                # (just comment out the Timedelta line above)
+
+                # Make sure MMWR_year is the "end" year of the season
+                lastweek['MMWR_year'] = year_end[i]
+
+                # Append padded week 53 and resort by date
+                season_df = pd.concat([season_df, lastweek], ignore_index=True)
+                season_df = season_df.sort_values('weekendingdate').reset_index(drop=True)
+
         season_dfs.append(season_df)
-        nw_max.append(season_df.shape[0]/len(data_flu['jurisdiction'].unique()))
+
+        # number of weeks per season (normalized by number of jurisdictions)
+        nw_max.append(season_df.shape[0] / n_jur)
+
     return season_dfs, nw_max
+
 
 season_dfs, nw_max = prepare_season_data(data_flu, year_start, year_end, EW_start, EW_end)
 
 max_index = np.argmax(nw_max)
-mmwr_label = season_dfs[max_index]['MMWR_week'].unique()
-mmwr_index= np.arange(0, np.max(nw_max))
+# What weeks exist in the reference season?
+weeks_present = np.sort(season_dfs[max_index]['MMWR_week'].unique())
+has_53 = 53 in weeks_present
+
+# Build the seasonal week axis explicitly:
+# EW_start .. 52 (..53 if present) then 1 .. EW_end
+if has_53:
+    first_part = np.arange(EW_start, 54)   # EW_start .. 53
+else:
+    first_part = np.arange(EW_start, 53)   # EW_start .. 52
+
+second_part = np.arange(1, EW_end + 1)     # 1 .. EW_end
+
+mmwr_label = np.concatenate([first_part, second_part]).astype(int)
+mmwr_index = np.arange(len(mmwr_label))
 
 with tab2:
     st.header(f"Flu Admissions up to {end_date.strftime('%m-%d-%y')}")
     
     # Grid of plots for Flu Data (data_flu)
     jurisdictions = data_flu['jurisdiction'].unique()
+    # order
+    jurisdictions = np.sort(jurisdictions)
     n = len(jurisdictions)
     cols = 3
     rows = int(np.ceil(n / cols))
@@ -347,7 +401,7 @@ with tab2:
         # Find the start and end indices of the psi forecast in mmwr_label
         start_idx = np.where(mmwr_label == median_labels[0])[0][0]  # Index where other_array starts
         end_idx = np.where(mmwr_label == median_labels[-1])[0][0] 
-     
+        
         # Create a padded array of NaNs with the same length as mmwr_label
         padded_array = np.full(len(mmwr_label), np.nan)
 
@@ -445,6 +499,8 @@ with tab3:
     
     # Grid of plots for Flu Data (data_flu)
     jurisdictions = data_flu['jurisdiction'].unique()
+    # order
+    jurisdictions = np.sort(jurisdictions)
     n = len(jurisdictions)
     cols = 3
     rows = int(np.ceil(n / cols))
@@ -522,16 +578,14 @@ with tab3:
 
 
 
-
 with tab4:
     st.header(f"Data up to {end_date.strftime('%m-%d-%y')}")
-
     # Selectbox for choosing a jurisdiction
     default_jurisdiction = 'CA'
     selected_jurisdiction = st.selectbox(
         "Select a Jurisdiction",
-        options=data_flu['jurisdiction'].unique(),
-        index=list(data_flu['jurisdiction'].unique()).index(default_jurisdiction)
+        options=np.sort(data_flu['jurisdiction'].unique()),
+        index=list(np.sort(data_flu['jurisdiction'].unique())).index(default_jurisdiction)
     )
 
     # Filtered data

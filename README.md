@@ -40,10 +40,15 @@ To run this app, you need to create a Python environment using **conda** or **ve
    cd nhsn-streamlit
    ```
 
+4. **Modify the Path to the location of your forecast File**
+    ```
+    see path_to_weekly_submission in nhsn.py
+    ```
+
 ## Running the App
 
    ```
-   streamlit run nhsn.app
+   streamlit run nhsn.py
   ```
 ## Support
 

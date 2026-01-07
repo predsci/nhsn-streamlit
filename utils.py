@@ -61,6 +61,14 @@ def create_fips_mapping():
 
     return full_fips
 
+def debug_read_data(output_path=None):
+    if output_path:
+        data=pd.read_csv(output_path)
+        print(f"Reading data from {output_path}")
+        return data
+    else:
+        print(f"Error reading data")
+
 def download_all_cdc_data(url, output_path=None):
     """
     Download all data from the given CDC API URL and save it locally if a path is provided.
