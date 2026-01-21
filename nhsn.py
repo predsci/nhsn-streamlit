@@ -181,6 +181,8 @@ with tab1:
     st.header(f"Facilities Reporting as of {end_date.strftime('%m-%d-%y')}")
     # Grid of plots for Fraction Reporting (data_rep)
     jurisdictions = data_rep['jurisdiction'].unique()
+    # order
+    jurisdictions = np.sort(jurisdictions)
     n = len(jurisdictions)
     cols = 3
     rows = int(np.ceil(n / cols))
