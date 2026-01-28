@@ -180,9 +180,7 @@ frcst_color = 'black'
 with tab1:
     st.header(f"Facilities Reporting as of {end_date.strftime('%m-%d-%y')}")
     # Grid of plots for Fraction Reporting (data_rep)
-    jurisdictions = data_rep['jurisdiction'].unique()
-    # order
-    jurisdictions = np.sort(jurisdictions)
+    jurisdictions=np.sort(data_flu['jurisdiction'].unique())
     n = len(jurisdictions)
     cols = 3
     rows = int(np.ceil(n / cols))
@@ -232,18 +230,18 @@ with tab1:
                 col=col)
 
         fig_rep.update_yaxes(
-                title_text="Fraction Reporting" if show_yaxis else None,
+                title_text="Percent Reporting" if show_yaxis else None,
                 showticklabels=show_yaxis,
-                range = [0,1],
-                tickvals = [0, 0.25, 0.5, 0.75, 1.0],
-                ticktext = [0, 0.25, 0.5, 0.75, 1.0],
+                range = [0,100],
+                tickvals = [0, 25, 50, 75, 100],
+                ticktext = [0, 25, 50, 75, 100],
                 row=row,
                 col=col
             )
 
     # Update layout for the subplot grid
     fig_rep.update_layout(
-        title="Fraction of Reporting Facilities Across Jurisdictions",
+        title="Percent of Reporting Facilities Across Jurisdictions",
         showlegend=False,  # Hide legend for individual subplots
         height=rows * 250,  # Adjust height dynamically based on the number of rows
         template="plotly_white"
@@ -643,7 +641,7 @@ with tab4:
         data_rep_jurisdiction,
         x='weekendingdate',
         y='totalconfflunewadmperchosprep',
-        title=f"Fraction Reporting - {selected_jurisdiction}",
+        title=f"Percent Reporting - {selected_jurisdiction}",
         labels={'weekendingdate': 'Week Ending Date', 'totalconfflunewadmperchosprep': 'Fraction Reporting'}
     )
     st.plotly_chart(fig_rep)
